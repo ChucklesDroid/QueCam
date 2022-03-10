@@ -6,19 +6,23 @@
 #include <sys/mman.h> 										// Used for mmap function
 #include <string.h> 											// Used for memset function
 #include "videodev2.h" 										// Used to take raw input from camera
+#include <errno.h> 												// Used for checking errno
+/* #include <asm/types.h> 										// for printing capabilities */
 
 // CameraManagers( int deviceCnt )
 int main( void )
 {
-	int deviceCnt = 0 ;	
+	int deviceCnt = 2 ;	
 // File descriptor for external webcam
 	int camera1 ;
 // Accessing the camera module
 	char pathDev[20]; 											// Path to the camera module
-	sprintf(pathDev,"/sys/class/video4linux/video%d",deviceCnt) ;
+	sprintf(pathDev,"/dev/video%d",deviceCnt) ;
+	/* sprintf(pathDev, "/sys/class/video4linux/video%d",deviceCnt) ; */
 	camera1 = open(pathDev,O_RDWR) ;
 	if( camera1 < 0 ){
 		fprintf(stderr,"Camera module unaccessible\n") ;
+		/* printf("%s",pathDev) ; */
 		return 1 ;
 	}
 
@@ -27,8 +31,9 @@ int main( void )
 	// capabilities (information) the camera has
 	// VIDIOC_QUERYCAP flag queries device capabilities
 	struct v4l2_capability capability ;
-	if ( ioctl( camera1, VIDIOC_QUERYCAP, &capability ) ){
+	if ( ioctl( camera1, VIDIOC_QUERYCAP, &capability ) == -1 ){
 		fprintf(stderr,"Cameera ran into problem : VIDIOC_QUERYCAP\n") ;
+		fprintf(stderr,"Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
@@ -41,8 +46,9 @@ int main( void )
 	imageFormat.fmt.pix.field = V4L2_FIELD_NONE ; 	// Indicates progressive compression
 
 // Telling the device format required of the frames extracted
-	if( ioctl( camera1, VIDIOC_S_FMT, imageFormat ) < 0 ){
-		fprintf(stderr, "Image extraction requirements not met \n") ;
+	if( ioctl( camera1, VIDIOC_S_FMT, &imageFormat ) == -1 ){
+		fprintf(stderr, "Image extraction requirements not met, VIDIOC_S_FMT \n") ;
+		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
@@ -52,8 +58,9 @@ int main( void )
 	requestBuffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE ; 
 	requestBuffer.memory = V4L2_MEMORY_MMAP ; // memory mapping required
 
-	if( ioctl( camera1, VIDIOC_REQBUFS, &requestBuffer ) < 0 ) {
-		fprintf(stderr, "Unable to request buffers, VIDIOC_REQBUFS") ;
+	if( ioctl( camera1, VIDIOC_REQBUFS, &requestBuffer ) == -1 ) {
+		fprintf(stderr, "Unable to request buffers, VIDIOC_REQBUFS\n") ;
+		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
@@ -64,8 +71,9 @@ int main( void )
 	queryBuffer.index = 0;
 	queryBuffer.memory = V4L2_MEMORY_MMAP ;
 
-	if ( ioctl( camera1, VIDIOC_QUERYBUF, &queryBuffer ) < 0){
-		fprintf(stderr, "Unable to querry the buffer, VIDIOC_QUERYBUF") ;
+	if ( ioctl( camera1, VIDIOC_QUERYBUF, &queryBuffer ) == -1 ){
+		fprintf(stderr, "Unable to querry the buffer, VIDIOC_QUERYBUF\n") ;
+		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
@@ -84,22 +92,25 @@ int main( void )
 
 // Activating Streaming	
 	int type = bufferinfo.type ;
-	if( ioctl( camera1, VIDIOC_STREAMON, &type ) < 0 ){
-		fprintf(stderr, "Unable to start the streaming , VIDIOC_STREAMON" ) ;
+	if( ioctl( camera1, VIDIOC_STREAMON, &type ) == -1 ){
+		fprintf(stderr, "Unable to start the streaming , VIDIOC_STREAMON\n" ) ;
+		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
 /********************** Looping begins here *****************************/
 	int imgNum = 0 ; 												// It counts the number of images captured
 // Queing the buffer
-	if( ioctl( camera1, VIDIOC_QBUF, &bufferinfo ) ){
+	if( ioctl( camera1, VIDIOC_QBUF, &bufferinfo ) == -1 ){
 		fprintf(stderr, "unable to start buffering, VIDIOC_QBUF\n") ;
+		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
 // Dequing the buffer
-	if( ioctl( camera1, VIDIOC_DQBUF, &bufferinfo ) ){
+	if( ioctl( camera1, VIDIOC_DQBUF, &bufferinfo ) == -1 ){
 		fprintf(stderr, "unable to start dequeing the buffer, VIDIOC_DQBUF\n") ;
+		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
@@ -107,11 +118,11 @@ int main( void )
 	printf("The buffer has %d kilobytes of data \n", bufferinfo.bytesused/1024 ) ;
 
 // Write data to the file
-	FILE *outFile ;
-	outFile = fopen("imgName", "ab" ) ;
-
 	char imgName[45] ;
-	sprintf(imgName, "%s_%d.raw", pathDev, imgNum ) ;
+	sprintf(imgName, "%s_%d.yuv", pathDev, imgNum ) ;
+	FILE *outFile ;
+	outFile = fopen(imgName, "ab" ) ;
+
 	int bufPos = 0,													// position in buffer
 			outFileMemBlockSize = 0, 						// amount to copy from buffer
 			remainingBufferSize = bufferinfo.bytesused ; 
@@ -145,8 +156,9 @@ int main( void )
 	fclose(outFile) ;
 
 // End streaming from device
-	if( ioctl( camera1, VIDIOC_STREAMOFF, &type ) ){
-		fprintf(stderr, "could not end streaming\n") ;
+	if( ioctl( camera1, VIDIOC_STREAMOFF, &type ) == -1 ){
+		fprintf(stderr, "Could not end streaming, VIDIOC_STREAMOFF\n") ;
+		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return 1 ;
 	}
 
