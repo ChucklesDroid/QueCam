@@ -141,7 +141,8 @@ int main( void )
 		printf("%d Remaining bytes: %d\n",itr++,remainingBufferSize ) ;
 		free(outFileMemBlock) ;
 	}
-	free(outFileMemBlock) ;
+
+	fclose(outFile) ;
 
 // End streaming from device
 	if( ioctl( camera1, VIDIOC_STREAMOFF, &type ) ){
@@ -150,7 +151,6 @@ int main( void )
 	}
 
 /* Closing the reqd files */
-	fclose(outFile) ;
 	close(camera1) ;
 	return 0 ;
 }
