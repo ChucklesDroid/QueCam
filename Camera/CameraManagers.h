@@ -10,7 +10,7 @@
 #include "videoframes.h" 									// Used for videoframes 
 /* #include <asm/types.h> 										// for printing capabilities */
 
-videoframes CameraManagers( int deviceCnt )
+videoframes *CameraManagers( int deviceCnt )
 {
 	/* int deviceCnt = 2 ;											// used fot testing purpose */
 // File descriptor for external webcam
@@ -103,8 +103,9 @@ videoframes CameraManagers( int deviceCnt )
 	int frameNum = 0 ; 											// It counts the number of images captured
 	char frameName[45] ;
 	sprintf( frameName, "%s.yuy", pathDev ) ;
-	videoframes frames ;
-	strcpy( frames.location, frameName ) ;
+	videoframes *frames ;
+	strcpy( frames->location, frameName ) ;
+	frames->deviceId = deviceCnt ;
 
 // Capture 30 frames from the device
 	while( frameNum < 30 ) {
