@@ -127,7 +127,7 @@ videoframes *CameraManagers( int deviceCnt )
 			printf("The buffer has %d kilobytes of data \n", bufferinfo.bytesused/1024 ) ;
 
 		// Write data to the file
-			int outFile = open("output.yuy", O_WRONLY | O_CREAT) ;
+			int outFile = open("output.yuy", O_APPEND | O_CREAT) ;
 			/* printf("%d", outFile) ; */
 			if( outFile == -1 ){
 				/* fprintf(stderr, "unable to open file: %s", frameName) ; */
