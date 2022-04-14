@@ -1,13 +1,17 @@
 #include <stdio.h> 											
+#include <sys/file.h> 										// used for with shared memory
 #include <unistd.h> 											// used for close
 #include <fcntl.h> 												// used for open
 #include <stdlib.h> 											// used for malloc ...
 #include <sys/ioctl.h> 										// used for ioctl function
 #include <sys/mman.h> 										// Used for mmap function
+#include <sys/stat.h>
 #include <string.h> 											// Used for memset function
 #include <linux/videodev2.h> 							// Used to take raw input from camera
 #include <errno.h> 												// Used for checking errno
 #include "videoframes.h" 									// Used for videoframes 
+#include <semaphore.h> 										// Used for semaphore
+#define VIDSIZE 1024*40 								//
 /* #include <asm/types.h> 										// for printing capabilities */
 
 videoframes *CameraManagers( int deviceCnt )
@@ -43,7 +47,7 @@ videoframes *CameraManagers( int deviceCnt )
 	imageFormat.type = V4L2_BUF_TYPE_VIDEO_CAPTURE ;
 	imageFormat.fmt.pix.width = 640 ;
 	imageFormat.fmt.pix.height = 480 ; 							// 480 p video sample
-	imageFormat.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG ; 
+	imageFormat.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24 ; 
 	imageFormat.fmt.pix.field = V4L2_FIELD_NONE ; 	// Indicates progressive compression
 
 // Telling the device format required of the frames extracted
@@ -102,13 +106,25 @@ videoframes *CameraManagers( int deviceCnt )
 /********************** Looping begins here *****************************/
 	int frameNum = 0 ; 											// It counts the number of images captured
 	char frameName[45] ;
-	sprintf( frameName, "%s.yuy", pathDev ) ;
+	sprintf( frameName, "video%d.yuy", deviceCnt ) ;
 	videoframes *frames ;
+	frames = (videoframes *)malloc(sizeof(videoframes)) ;
 	strcpy( frames->location, frameName ) ;
 	frames->deviceId = deviceCnt ;
+	
+// Write data to the shared memory 
+		// Frames get written after dequeing the buffer
+			int outFile = sem_open( frameName, O_WRONLY | O_CREATE, 0644 ) ; 
 
-// Capture 30 frames from the device
-	while( frameNum < 30 ) {
+			if( outFile == SEM_FAILED ){
+				fprintf(stderr, "unable to allocate segment") ;
+				strerror(errno) ;
+				return NULL ;
+			}
+
+			
+// Capture 60 frames from the device
+	while( frameNum < 60 ) {
 		// Queing the buffer
 			if( ioctl( camera, VIDIOC_QBUF, &bufferinfo ) == -1 ){
 				fprintf(stderr, "unable to start buffering, VIDIOC_QBUF\n") ;
@@ -123,19 +139,8 @@ videoframes *CameraManagers( int deviceCnt )
 				return NULL ;
 			}
 
-		// Frames get written after dequeing the buffer
 			printf("The buffer has %d kilobytes of data \n", bufferinfo.bytesused/1024 ) ;
-
-		// Write data to the file
-			int outFile = open("output.yuy", O_APPEND | O_CREAT) ;
-			/* printf("%d", outFile) ; */
-			if( outFile == -1 ){
-				/* fprintf(stderr, "unable to open file: %s", frameName) ; */
-				fprintf(stderr, "unable to open file: output.yuy") ,
-				strerror(errno) ;
-				return NULL ;
-			}
-
+		
 			int bufPos = 0,													// position in buffer
 					outFileMemBlockSize = 0, 						// amount to copy from buffer
 					remainingBufferSize = bufferinfo.bytesused ; 
@@ -146,8 +151,12 @@ videoframes *CameraManagers( int deviceCnt )
 			
 			while( remainingBufferSize > 0 ){
 				bufPos += outFileMemBlockSize ; 			// Updating the buffer on each loop
-				outFileMemBlockSize = 1024 ; 					// Setting the reqd memory block size
+				if ( outFileMemBlockSize == 0 && bufPos == 0 ){
+					outFileMemBlockSize = 1024*1024 ; 	// Setting the reqd memory block size
+				}
 				
+				// Address pointer to shared memory
+				caddr_t shared_memory = mmap( NULL, VIDSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, outFile, 0) ;
 				// Allocating memory to pointer to copy data from buffer
 				outFileMemBlock = (char *)malloc( outFileMemBlockSize ) ;
 				if( outFileMemBlock == NULL ){
@@ -170,9 +179,9 @@ videoframes *CameraManagers( int deviceCnt )
 				printf("%d Remaining bytes: %d\n",itr++,remainingBufferSize ) ;
 				free(outFileMemBlock) ;
 			}
-
-			close(outFile) ;
+			frameNum++ ;
 	}
+	close(outFile) ;
 
 // End streaming from device
 	if( ioctl( camera, VIDIOC_STREAMOFF, &type ) == -1 ){
@@ -180,7 +189,6 @@ videoframes *CameraManagers( int deviceCnt )
 		fprintf(stderr, "Error : %s", strerror(errno)) ;
 		return NULL ;
 
-		frameNum++ ;
 	}
 
 /* Closing the read files */

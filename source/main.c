@@ -43,6 +43,9 @@ int main( int argc, char *argv[] )
 			fprintf(stderr, "%s: could not be opened\n", name) ;
 			return 1 ;
 		} while((fp = readdir(dp)) != NULL){
+				if( strcmp( ".", fp->d_name ) == 0 || strcmp( "..", fp->d_name ) ){
+					continue ;
+				}
 				centralQueue[loopingCnt] = malloc(sizeof(camera)) ;
 				strcpy(centralQueue[loopingCnt]->name, fp->d_name) ;
 				pthread_create( &id[loopingCnt], NULL, cameraManager(), &centralQueue[loopingCnt] ) ;
@@ -50,6 +53,9 @@ int main( int argc, char *argv[] )
 		} 
 
 		/* Executing the videofiles from the queue */
+		pthread_t execution_id[2] ; 			  		// Creating execution threads 
+		pthread_create( &execution_id[0], )
+
 
 		closedir(dp) ;
 	} 

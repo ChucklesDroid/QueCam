@@ -1,0 +1,22 @@
+In file included from tester.c:2:
+videoframes.h:3:16: error: redefinition of ‘struct Videoframes’
+    3 | typedef struct Videoframes{
+      |                ^~~~~~~~~~~
+In file included from CameraManagers.h:11,
+                 from tester.c:1:
+videoframes.h:3:16: note: originally defined here
+    3 | typedef struct Videoframes{
+      |                ^~~~~~~~~~~
+In file included from tester.c:2:
+videoframes.h:6:3: error: conflicting types for ‘videoframes’; have ‘struct Videoframes’
+    6 | } videoframes;
+      |   ^~~~~~~~~~~
+In file included from CameraManagers.h:11,
+                 from tester.c:1:
+videoframes.h:6:3: note: previous declaration of ‘videoframes’ with type ‘videoframes’ {aka ‘struct Videoframes’}
+    6 | } videoframes;
+      |   ^~~~~~~~~~~
+tester.c: In function ‘main’:
+tester.c:7:15: warning: assignment to ‘videoframes *’ {aka ‘struct Videoframes *’} from incompatible pointer type ‘videoframes *’ {aka ‘struct Videoframes *’} [-Wincompatible-pointer-types]
+    7 |         frame = CameraManagers(0) ;
+      |               ^
